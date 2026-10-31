@@ -1,0 +1,285 @@
+/* ===== Variáveis de cor ===== */
+:root {
+  --cor-fundo: #f3f4f7;
+  --cor-card: #ffffff;
+  --cor-texto: #1f2937;
+  --cor-texto-suave: #6b7280;
+  --cor-borda: #d1d5db;
+  --cor-primaria: #2563eb;
+  --cor-primaria-escura: #1d4ed8;
+  --cor-perigo: #dc2626;
+  --cor-ok: #15803d;
+  --cor-ok-fundo: #dcfce7;
+  --cor-erro-fundo: #fee2e2;
+  --raio: 8px;
+}
+
+/* ===== Base ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  line-height: 1.5;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ===== Topo ===== */
+.topo {
+  background: var(--cor-primaria);
+  color: #fff;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.topo h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.sub {
+  margin: 4px 0 0;
+  opacity: 0.85;
+  font-size: 0.95rem;
+}
+
+/* ===== Layout ===== */
+.container {
+  max-width: 900px;
+  margin: 24px auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card {
+  background: var(--cor-card);
+  border-radius: var(--raio);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.card h2 {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #e0e7ff;
+  color: var(--cor-primaria-escura);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* ===== Formulários ===== */
+.form-linha {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+input,
+select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  background: #fff;
+  min-width: 0;
+  width: 100%;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+input:disabled {
+  background: #f3f4f6;
+  color: var(--cor-texto-suave);
+}
+
+.form-linha input {
+  flex: 1 1 220px;
+}
+
+.acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===== Botões ===== */
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--cor-primaria);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: var(--cor-primaria-escura);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--cor-primaria);
+  border: 1px solid var(--cor-primaria);
+}
+
+.btn.ghost:hover {
+  background: #eff6ff;
+}
+
+.btn.perigo {
+  background: var(--cor-perigo);
+}
+
+.btn.perigo:hover {
+  background: #b91c1c;
+}
+
+.btn.pequeno {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+/* ===== Lista de cursos ===== */
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lista li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.lista li:last-child {
+  border-bottom: none;
+}
+
+/* ===== Tabela de alunos ===== */
+.tabela-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cor-texto-suave);
+}
+
+td {
+  font-size: 0.95rem;
+}
+
+.col-acoes {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.vazio {
+  color: var(--cor-texto-suave);
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ===== Mensagens ===== */
+.status {
+  font-weight: 600;
+  padding: 0;
+  min-height: 0;
+  border-radius: var(--raio);
+}
+
+.status:not(:empty) {
+  padding: 10px 14px;
+}
+
+.status.ok {
+  color: var(--cor-ok);
+  background: var(--cor-ok-fundo);
+}
+
+.status.erro {
+  color: var(--cor-perigo);
+  background: var(--cor-erro-fundo);
+}
+
+/* ===== Celular ===== */
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .acoes {
+    justify-content: flex-start;
+  }
+
+  .lista li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card {
+    padding: 16px;
+  }
+}

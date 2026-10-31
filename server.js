@@ -1,37 +1,81 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');  
-const path = require('path');   
+const cors = require('cors');
+const path = require('path');
 
 const {
-  inserirAluno,
-  listarAlunos,
-  buscarPorRa,
-  atualizarCurso,
-  excluirPorRa
+  inserirCurso, listarCursos, excluirCurso, listarAlunosDoCurso,
+  inserirAluno, listarAlunos, buscarPorRa, atualizarAluno, excluirPorRa,
 } = require('./supabase');
+
+// códigos de erro do Postgres
+const ERRO_DUPLICADO = '23505';         // unique violado (nome de curso ou RA repetido)
+const ERRO_CHAVE_ESTRANGEIRA = '23503'; // curso_id inexistente, ou curso com alunos
 
 const app = express();
 
-// Middlewares globais
-app.use(cors());                // habilita CORS
-app.use(express.json());        // habilita JSON
-app.use(express.static(path.join(__dirname, 'frontend'))); // serve arquivos estáticos
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'frontend')));
 
-console.log("TESTE atualizarCurso:", typeof atualizarCurso);
-console.log("TESTE excluirPorRa:", typeof excluirPorRa);
+// ===================== CURSOS =====================
 
-// ROTA GET - lista todos
-app.get('/alunos', async (req, res) => {
+app.get('/cursos', async (req, res) => {
   try {
-    const dados = await listarAlunos();
-    res.json(dados);
+    res.json(await listarCursos());
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
 });
 
-// ROTA GET - busca por RA
+app.post('/cursos', async (req, res) => {
+  const nome = (req.body?.nome ?? '').trim();
+  if (!nome) return res.status(400).json({ erro: 'Campo obrigatório: nome' });
+
+  try {
+    res.status(201).json(await inserirCurso(nome));
+  } catch (e) {
+    if (e.code === ERRO_DUPLICADO) {
+      return res.status(409).json({ erro: 'Já existe um curso com esse nome' });
+    }
+    res.status(400).json({ erro: e.message });
+  }
+});
+
+app.delete('/cursos/:id', async (req, res) => {
+  try {
+    const apagado = await excluirCurso(req.params.id);
+    if (!apagado.length) return res.status(404).json({ erro: 'Curso não encontrado' });
+    res.json(apagado[0]);
+  } catch (e) {
+    if (e.code === ERRO_CHAVE_ESTRANGEIRA) {
+      return res.status(409).json({
+        erro: 'Não é possível excluir: este curso ainda tem alunos',
+      });
+    }
+    res.status(400).json({ erro: e.message });
+  }
+});
+
+// rota aninhada: os alunos de UM curso
+app.get('/cursos/:id/alunos', async (req, res) => {
+  try {
+    res.json(await listarAlunosDoCurso(req.params.id));
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ===================== ALUNOS =====================
+
+app.get('/alunos', async (req, res) => {
+  try {
+    res.json(await listarAlunos());
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 app.get('/alunos/:ra', async (req, res) => {
   try {
     const aluno = await buscarPorRa(req.params.ra);
@@ -42,35 +86,44 @@ app.get('/alunos/:ra', async (req, res) => {
   }
 });
 
-// ROTA POST - inserir aluno
 app.post('/alunos', async (req, res) => {
+  const { nome, ra, curso_id } = req.body ?? {};
+  if (!nome || !ra || !curso_id) {
+    return res.status(400).json({ erro: 'Campos obrigatórios: nome, ra e curso_id' });
+  }
+
   try {
-    const { nome, ra, curso } = req.body;
-    if (!nome || !ra) {
-      return res.status(400).json({ erro: 'Campos obrigatórios: nome e ra' });
+    res.status(201).json(await inserirAluno(nome, ra, curso_id));
+  } catch (e) {
+    if (e.code === ERRO_DUPLICADO) {
+      return res.status(409).json({ erro: 'Já existe um aluno com esse RA' });
     }
-    const aluno = await inserirAluno(nome, ra, curso);
-    res.status(201).json(aluno);
-  } catch (e) {
+    if (e.code === ERRO_CHAVE_ESTRANGEIRA) {
+      return res.status(400).json({ erro: 'Este curso não existe' });
+    }
     res.status(400).json({ erro: e.message });
   }
 });
 
-// ROTA PUT - atualizar curso
 app.put('/alunos/:ra', async (req, res) => {
+  const { nome, curso_id } = req.body ?? {};
   try {
-    const data = await atualizarCurso(req.params.ra, req.body.curso);
-    res.json(data);
+    const atualizados = await atualizarAluno(req.params.ra, nome, curso_id);
+    if (!atualizados.length) return res.status(404).json({ erro: 'Aluno não encontrado' });
+    res.json(atualizados[0]);
   } catch (e) {
+    if (e.code === ERRO_CHAVE_ESTRANGEIRA) {
+      return res.status(400).json({ erro: 'Este curso não existe' });
+    }
     res.status(400).json({ erro: e.message });
   }
 });
 
-// ROTA DELETE - excluir aluno
 app.delete('/alunos/:ra', async (req, res) => {
   try {
-    const data = await excluirPorRa(req.params.ra);
-    res.json(data);
+    const apagados = await excluirPorRa(req.params.ra);
+    if (!apagados.length) return res.status(404).json({ erro: 'Aluno não encontrado' });
+    res.json(apagados[0]);
   } catch (e) {
     res.status(400).json({ erro: e.message });
   }
