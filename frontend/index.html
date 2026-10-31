@@ -9,7 +9,7 @@
 <body>
   <header class="topo">
     <h1>Cadastro de Alunos</h1>
-    <p class="sub">Cada aluno pertence a um curso </p>
+    <p class="sub">Cada aluno pertence a um curso (relacionamento 1:N)</p>
   </header>
 
   <main class="container">
@@ -26,6 +26,7 @@
 
     <section class="card">
       <h2>Alunos <span class="badge">lado N</span></h2>
+
       <form id="form-aluno" class="form-grid">
         <label>Nome *
           <input id="aluno-nome" type="text" required>
@@ -42,6 +43,15 @@
         </div>
       </form>
 
+      <div class="filtro-linha">
+        <label>Filtrar por curso
+          <select id="filtro-curso">
+            <option value="">Todos os cursos</option>
+          </select>
+        </label>
+        <button type="button" id="btn-atualizar" class="btn ghost">Atualizar lista</button>
+      </div>
+
       <div class="tabela-wrap">
         <table>
           <thead>
@@ -55,6 +65,11 @@
           <tbody id="tabela-alunos"></tbody>
         </table>
       </div>
+
+      <!-- frase de status, embaixo da tabela -->
+      <p id="alunos-status" class="rolagem-status">Carregando...</p>
+      <!-- sentinela: marcador invisível no fim da lista; quando ele aparece na tela, carrega mais -->
+      <div id="sentinela-alunos" aria-hidden="true"></div>
     </section>
   </main>
 

@@ -12,6 +12,23 @@ const {
 const ERRO_DUPLICADO = '23505';         // unique violado (nome de curso ou RA repetido)
 const ERRO_CHAVE_ESTRANGEIRA = '23503'; // curso_id inexistente, ou curso com alunos
 
+// lê inicio e limite da URL: /alunos?inicio=5&limite=5
+// sem nenhum dos dois, devolve null e a rota manda a lista inteira
+function lerPagina(query) {
+  if (query.limite === undefined && query.inicio === undefined) return null;
+
+  const limite = Number(query.limite);
+  const inicio = query.inicio === undefined ? 0 : Number(query.inicio);
+
+  if (!Number.isInteger(limite) || limite < 1 || limite > 100) {
+    return { erro: 'Informe limite entre 1 e 100' };
+  }
+  if (!Number.isInteger(inicio) || inicio < 0) {
+    return { erro: 'inicio inválido' };
+  }
+  return { inicio, limite };
+}
+
 const app = express();
 
 app.use(cors());
@@ -59,8 +76,12 @@ app.delete('/cursos/:id', async (req, res) => {
 
 // rota aninhada: os alunos de UM curso
 app.get('/cursos/:id/alunos', async (req, res) => {
+  const pagina = lerPagina(req.query);
+  if (pagina?.erro) return res.status(400).json({ erro: pagina.erro });
+
   try {
-    res.json(await listarAlunosDoCurso(req.params.id));
+    const dados = await listarAlunosDoCurso(req.params.id, pagina ?? {});
+    res.json(pagina ? { ...dados, inicio: pagina.inicio, limite: pagina.limite } : dados);
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
@@ -69,8 +90,12 @@ app.get('/cursos/:id/alunos', async (req, res) => {
 // ===================== ALUNOS =====================
 
 app.get('/alunos', async (req, res) => {
+  const pagina = lerPagina(req.query);
+  if (pagina?.erro) return res.status(400).json({ erro: pagina.erro });
+
   try {
-    res.json(await listarAlunos());
+    const dados = await listarAlunos(pagina ?? {});
+    res.json(pagina ? { ...dados, inicio: pagina.inicio, limite: pagina.limite } : dados);
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
@@ -129,7 +154,7 @@ app.delete('/alunos/:ra', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`API rodando em http://localhost:${PORT}`);
 });

@@ -283,3 +283,27 @@ td {
     padding: 16px;
   }
 }
+
+/* ===== Filtro e lista que cresce ao rolar ===== */
+.filtro-linha {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.filtro-linha label {
+  flex: 1 1 240px;
+  max-width: 320px;
+}
+
+.rolagem-status {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #eef0f3;
+  font-size: 0.85rem;
+  color: var(--cor-texto-suave);
+  text-align: center;
+}

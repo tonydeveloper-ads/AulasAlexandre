@@ -1,5 +1,4 @@
-// Usa caminhos relativos: a página e a API são servidas pelo mesmo server.js,
-// então não precisa de URL nem porta fixas aqui.
+// Caminhos relativos: a página e a API são servidas pelo mesmo server.js.
 
 const el = (id) => document.getElementById(id);
 
@@ -8,16 +7,31 @@ const formCurso = el('form-curso');
 const formAluno = el('form-aluno');
 const btnSalvarAluno = el('btn-salvar-aluno');
 const btnCancelar = el('btn-cancelar');
+const btnAtualizar = el('btn-atualizar');
+const filtroCurso = el('filtro-curso');
+const tabelaAlunos = el('tabela-alunos');
+const alunosStatus = el('alunos-status');
+const sentinelaAlunos = el('sentinela-alunos');
+
+// ===== Memória da lista que cresce ao rolar =====
+// Ficam fora das funções para sobreviver de uma leva para a outra.
+const ALUNOS_POR_PAGINA = 5;
+let alunosInicio = 0;      // quantos alunos já estão desenhados
+let alunosTotal = 0;       // quantos existem no filtro atual
+let alunosTemMais = false; // ainda falta gente?
+let alunosCarregando = false;
+let alunosErro = false;
+let alunosPedido = 0;      // número da busca que vale agora
 
 let cursos = [];
-let editandoRa = null; // RA do aluno em edição; null = cadastrando um novo
+let editandoRa = null; // RA do aluno em edição; null = cadastrando
 
 function mostrarStatus(texto, tipo = '') {
   statusEl.textContent = texto;
   statusEl.className = tipo ? `status ${tipo}` : 'status';
 }
 
-// chamada à API que checa se a resposta é JSON antes de ler
+// chamada à API: confere se a resposta é JSON antes de ler
 async function api(url, opcoes = {}) {
   const resposta = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
@@ -47,7 +61,8 @@ async function api(url, opcoes = {}) {
 async function carregarCursos() {
   cursos = await api('/cursos');
   renderizarCursos();
-  preencherSelectCursos();
+  preencherSelect(filtroCurso, cursos, 'Todos os cursos');
+  preencherSelect(el('aluno-curso'), cursos, 'Selecione um curso');
 }
 
 function renderizarCursos() {
@@ -76,20 +91,25 @@ function renderizarCursos() {
   });
 }
 
-// o select de alunos mostra os cursos cadastrados e guarda o id no value
-function preencherSelectCursos() {
-  const select = el('aluno-curso');
+// preenche um select com os cursos, mantendo a escolha atual se ela ainda existir
+function preencherSelect(select, lista, textoPadrao) {
   const valorAtual = select.value;
 
-  select.innerHTML = '<option value="">Selecione um curso</option>';
-  cursos.forEach((curso) => {
+  select.innerHTML = '';
+  const padrao = document.createElement('option');
+  padrao.value = '';
+  padrao.textContent = textoPadrao;
+  select.appendChild(padrao);
+
+  lista.forEach((curso) => {
     const opcao = document.createElement('option');
     opcao.value = curso.id;
     opcao.textContent = curso.nome;
     select.appendChild(opcao);
   });
 
-  select.value = valorAtual;
+  // se o curso escolhido foi excluído, volta para o padrão
+  select.value = lista.some((c) => String(c.id) === valorAtual) ? valorAtual : '';
 }
 
 async function criarCurso(evento) {
@@ -122,45 +142,126 @@ async function excluirCurso(curso) {
 
 // ================= ALUNOS (lado N) =================
 
-async function carregarAlunos() {
-  const alunos = await api('/alunos');
-  const tbody = el('tabela-alunos');
-  tbody.innerHTML = '';
+// acrescentar = false: busca nova (apaga a tabela e começa do zero)
+// acrescentar = true:  a próxima leva, colada embaixo das que já estão
+async function listarAlunos(acrescentar = false) {
+  if (acrescentar && (alunosCarregando || !alunosTemMais)) return;
 
-  if (!alunos.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="vazio">Nenhum aluno cadastrado.</td></tr>';
-    return;
+  const pedido = acrescentar ? alunosPedido : ++alunosPedido;
+  const inicio = acrescentar ? alunosInicio : 0;
+
+  if (!acrescentar) {
+    alunosInicio = 0;
+    alunosTotal = 0;
+    alunosTemMais = false;
   }
 
-  alunos.forEach((aluno) => {
-    const tr = document.createElement('tr');
+  const cursoId = filtroCurso.value;
+  const base = cursoId ? `/cursos/${cursoId}/alunos` : '/alunos';
 
-    // textContent evita que nome digitado seja lido como HTML
-    [aluno.nome, aluno.ra, aluno.curso?.nome ?? '—'].forEach((texto) => {
-      const td = document.createElement('td');
-      td.textContent = texto;
-      tr.appendChild(td);
-    });
+  alunosCarregando = true;
+  alunosErro = false;
+  atualizarRodape();
 
-    const tdAcoes = document.createElement('td');
-    tdAcoes.className = 'col-acoes';
+  try {
+    const dados = await api(`${base}?inicio=${inicio}&limite=${ALUNOS_POR_PAGINA}`);
 
-    const btnEditar = document.createElement('button');
-    btnEditar.type = 'button';
-    btnEditar.className = 'btn ghost pequeno';
-    btnEditar.textContent = 'Editar';
-    btnEditar.addEventListener('click', () => entrarEdicao(aluno));
+    // resposta de uma busca antiga (o usuário já trocou o filtro): descarta
+    if (pedido !== alunosPedido) return;
 
-    const btnExcluir = document.createElement('button');
-    btnExcluir.type = 'button';
-    btnExcluir.className = 'btn perigo pequeno';
-    btnExcluir.textContent = 'Excluir';
-    btnExcluir.addEventListener('click', () => excluirAluno(aluno));
+    const alunos = dados.alunos || [];
+    alunosTotal = dados.total || 0;
 
-    tdAcoes.append(btnEditar, ' ', btnExcluir);
-    tr.appendChild(tdAcoes);
-    tbody.appendChild(tr);
+    if (!acrescentar) tabelaAlunos.innerHTML = '';
+
+    if (!alunosTotal) {
+      tabelaAlunos.innerHTML = '';
+      tabelaAlunos.appendChild(linhaVazia('Nenhum aluno para mostrar.'));
+      alunosTemMais = false;
+      return;
+    }
+
+    alunos.forEach((aluno) => tabelaAlunos.appendChild(linhaAluno(aluno)));
+
+    alunosInicio = inicio + alunos.length;
+    alunosTemMais = alunosInicio < alunosTotal;
+  } catch (e) {
+    if (pedido !== alunosPedido) return;
+    alunosErro = true;
+    mostrarStatus(`Erro: ${e.message}`, 'erro');
+  } finally {
+    if (pedido === alunosPedido) {
+      alunosCarregando = false;
+      atualizarRodape();
+      pedirMaisSeVisivel(); // se o marcador já está na tela, carrega a próxima leva
+    }
+  }
+}
+
+function atualizarRodape() {
+  if (alunosErro) {
+    alunosStatus.textContent = 'A lista não carregou. Use Atualizar lista para tentar de novo.';
+  } else if (alunosCarregando && !alunosInicio) {
+    alunosStatus.textContent = 'Carregando...';
+  } else if (!alunosTotal) {
+    alunosStatus.textContent = alunosCarregando ? 'Carregando...' : 'Nenhum aluno para mostrar.';
+  } else if (alunosTemMais) {
+    alunosStatus.textContent = alunosCarregando
+      ? `Mostrando ${alunosInicio} de ${alunosTotal}. Carregando mais...`
+      : `Mostrando ${alunosInicio} de ${alunosTotal}. Role a tela para carregar mais.`;
+  } else {
+    alunosStatus.textContent = `Mostrando ${alunosTotal} de ${alunosTotal}. Fim da lista.`;
+  }
+}
+
+// dispara a próxima leva quando o marcador chega perto da borda de baixo
+function pedirMaisSeVisivel() {
+  if (!alunosTemMais || alunosCarregando) return;
+  const topo = sentinelaAlunos.getBoundingClientRect().top;
+  if (topo <= window.innerHeight + 160) listarAlunos(true);
+}
+
+window.addEventListener('scroll', pedirMaisSeVisivel);
+window.addEventListener('resize', pedirMaisSeVisivel);
+
+function linhaVazia(texto) {
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.colSpan = 4;
+  td.className = 'vazio';
+  td.textContent = texto;
+  tr.appendChild(td);
+  return tr;
+}
+
+function linhaAluno(aluno) {
+  const tr = document.createElement('tr');
+
+  // textContent evita que nome digitado seja lido como HTML
+  [aluno.nome, aluno.ra, aluno.curso?.nome ?? '—'].forEach((texto) => {
+    const td = document.createElement('td');
+    td.textContent = texto;
+    tr.appendChild(td);
   });
+
+  const tdAcoes = document.createElement('td');
+  tdAcoes.className = 'col-acoes';
+
+  const btnEditar = document.createElement('button');
+  btnEditar.type = 'button';
+  btnEditar.className = 'btn ghost pequeno';
+  btnEditar.textContent = 'Editar';
+  btnEditar.addEventListener('click', () => entrarEdicao(aluno));
+
+  const btnExcluir = document.createElement('button');
+  btnExcluir.type = 'button';
+  btnExcluir.className = 'btn perigo pequeno';
+  btnExcluir.textContent = 'Excluir';
+  btnExcluir.addEventListener('click', () => excluirAluno(aluno));
+
+  tdAcoes.append(btnEditar, ' ', btnExcluir);
+  tr.appendChild(tdAcoes);
+  return tr;
 }
 
 function entrarEdicao(aluno) {
@@ -209,14 +310,14 @@ async function salvarAluno(evento) {
     }
 
     sairEdicao();
-    await atualizarTudo();
+    await atualizarTudo(); // a contagem de alunos por curso também muda
   } catch (e) {
     mostrarStatus(`Erro: ${e.message}`, 'erro');
   }
 }
 
 async function excluirAluno(aluno) {
-  if (!confirm(`Excluir o aluno "${aluno.nome}"?`)) return;
+  if (!confirm(`Excluir o aluno "${aluno.nome}" (RA ${aluno.ra})?`)) return;
 
   try {
     await api(`/alunos/${encodeURIComponent(aluno.ra)}`, { method: 'DELETE' });
@@ -230,13 +331,16 @@ async function excluirAluno(aluno) {
 
 // ================= INICIALIZAÇÃO =================
 
+// 1º os cursos (preenchem os selects), 2º os alunos (já usam o filtro preenchido)
 async function atualizarTudo() {
   await carregarCursos();
-  await carregarAlunos();
+  await listarAlunos(false);
 }
 
 formCurso.addEventListener('submit', criarCurso);
 formAluno.addEventListener('submit', salvarAluno);
 btnCancelar.addEventListener('click', sairEdicao);
+btnAtualizar.addEventListener('click', () => atualizarTudo().catch((e) => mostrarStatus(`Erro: ${e.message}`, 'erro')));
+filtroCurso.addEventListener('change', () => listarAlunos(false));
 
 atualizarTudo().catch((e) => mostrarStatus(`Erro: ${e.message}`, 'erro'));

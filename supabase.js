@@ -72,28 +72,33 @@ async function inserirAluno(nome, ra, cursoId) {
   return data;
 }
 
-// todos os alunos, cada um com o seu curso
-async function listarAlunos() {
-  const { data, error } = await supabase
-    .from('alunos')
-    .select(COLUNAS_ALUNO)
-    .order('id', { ascending: true });
+// alunos, cada um com o seu curso.
+// Sem opções: devolve o array completo (demo e testes).
+// Com limite: devolve uma "página" { alunos, total } para a lista que cresce ao rolar.
+// cursoId filtra pelo curso (o 1:N na prática).
+async function listarAlunos(opcoes = {}) {
+  const { cursoId, inicio = 0, limite } = opcoes;
 
+  let consulta = supabase
+    .from('alunos')
+    .select(COLUNAS_ALUNO, limite ? { count: 'exact' } : undefined);
+
+  if (cursoId) consulta = consulta.eq('curso_id', cursoId);
+
+  consulta = consulta.order(cursoId ? 'nome' : 'id', { ascending: true });
+
+  if (limite) consulta = consulta.range(inicio, inicio + limite - 1);
+
+  const { data, error, count } = await consulta;
   if (error) throw error;
-  return data;
+
+  if (!limite) return data || [];
+  return { alunos: data || [], total: count ?? 0 };
 }
 
-// o 1:N na prática: dado UM curso, os N alunos dele
-// equivalente a: SELECT ... FROM alunos WHERE curso_id = ...
-async function listarAlunosDoCurso(cursoId) {
-  const { data, error } = await supabase
-    .from('alunos')
-    .select(COLUNAS_ALUNO)
-    .eq('curso_id', cursoId)
-    .order('nome', { ascending: true });
-
-  if (error) throw error;
-  return data;
+// os alunos de UM curso (mesma paginação de listarAlunos)
+async function listarAlunosDoCurso(cursoId, opcoes = {}) {
+  return listarAlunos({ ...opcoes, cursoId });
 }
 
 // equivalente a: SELECT ... FROM alunos WHERE ra = '...'
